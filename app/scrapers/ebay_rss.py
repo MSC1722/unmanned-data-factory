@@ -15,7 +15,9 @@
   채운다 (ai_claude.py는 None을 "판매자 신뢰도 미검증" 신호로 취급한다).
 - 이베이가 RSS 엔드포인트를 차단하거나(403 등) 응답 형식을 바꾸면 예외를
   삼키고 빈 리스트를 반환한다 — 한 키워드의 실패로 전체 수집 사이클이
-  죽으면 안 되기 때문이다.
+  죽으면 안 되기 때문이다. (실제로 이 프로젝트를 개발한 네트워크 환경에서는
+  RSS 엔드포인트가 403으로 차단되는 것을 확인했다 — 봇 차단은 RSS라고 예외가
+  아니다. 실제 배포 환경(주거용 IP/프록시 등)에서는 통과할 수 있다.)
 """
 import asyncio
 import re
@@ -47,11 +49,22 @@ async def _fetch_raw_rss(keyword: str) -> str:
     """RSS XML을 텍스트로 가져온다. 실패하면 예외를 그대로 올린다(호출부가 처리)."""
     url = build_search_rss_url(keyword)
     headers = {
-        "User-Agent": settings.user_agent,
-        "Accept": "application/rss+xml, application/xml;q=0.9, */*;q=0.8",
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
     }
     async with httpx.AsyncClient(timeout=settings.request_timeout, follow_redirects=True) as client:
         response = await client.get(url, headers=headers)
+        if response.status_code != 200:
+            logger.error(
+                "[ebay_rss] '%s' 요청 실패: status=%d body_snippet=%r",
+                keyword,
+                response.status_code,
+                response.text[:500],
+            )
         response.raise_for_status()
         return response.text
 
