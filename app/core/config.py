@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     # 목(mock) 데이터 스위치. 실제 타깃이 정해지기 전까지는 true로 두고 개발한다.
     use_mock_data: bool = True
 
+    # eBay Browse API (공식 개발자 API) 인증 정보.
+    # RSS 피드(_rss=1)가 403으로 차단되는 것을 확인해 공식 API로 전환했다 —
+    # https://developer.ebay.com 에서 애플리케이션을 등록하면 발급된다.
+    # 비어 있으면 ebay_browse_api.fetch_ebay_browse_items가 매 사이클 경고
+    # 로그만 남기고 빈 리스트를 반환한다(스케줄러 전체를 죽이지 않기 위함).
+    ebay_client_id: str = ""
+    ebay_client_secret: str = ""
+
     # AI API 키. 비어 있으면 각 서비스는 규칙 기반 fallback으로 동작한다.
     gemini_api_key: str = ""
     claude_api_key: str = ""

@@ -2,9 +2,15 @@
 카메라/렌즈 백그라운드 수집 스케줄러.
 
 FastAPI lifespan(app/main.py)에서 백그라운드 asyncio 태스크로 시작된다.
-설정된 각 검색 키워드에 대해 이베이 RSS를 수집 → (캐싱된) AI 분석 →
+설정된 각 검색 키워드에 대해 이베이 Browse API를 수집 → (캐싱된) AI 분석 →
 USD 원가/마진 연산 → camera_store 적재까지 한 사이클로 묶어서,
 `camera_scrape_interval_seconds`(기본 5분) 간격으로 무한 반복한다.
+
+RSS 검색 피드(app/scrapers/ebay_rss.py, `_rss=1`)는 IP 단위 403 차단이
+확인되어 더 이상 스케줄러에서 쓰지 않는다 — 대신 OAuth 인증 기반 공식
+Browse API(app/scrapers/ebay_browse_api.py)를 사용한다. EBAY_CLIENT_ID/
+EBAY_CLIENT_SECRET이 비어 있으면 매 사이클 경고 로그만 남기고 0건을
+반환한다(스케줄러 자체는 죽지 않는다).
 
 `/api/v1/free-signals`, `/api/v1/premium-signals`는 이 스케줄러가 채워 넣는
 camera_store를 조회만 한다 — Mock 데이터로 자동 시드하던 이전 동작은
@@ -14,7 +20,7 @@ import asyncio
 
 from app.core.config import settings
 from app.core.logger import get_logger
-from app.scrapers.ebay_rss import fetch_ebay_rss_items
+from app.scrapers.ebay_browse_api import fetch_ebay_browse_items
 from app.services.camera_pipeline import process_raw_camera_item
 
 logger = get_logger(__name__)
@@ -39,9 +45,9 @@ async def run_scrape_cycle() -> int:
 
     for keyword, baseline_price_usd in KEYWORD_BASELINE_PRICE_USD.items():
         try:
-            raw_items = await fetch_ebay_rss_items(keyword)
+            raw_items = await fetch_ebay_browse_items(keyword)
         except Exception:
-            logger.exception("[scheduler] '%s' RSS 수집 중 처리되지 않은 오류, 건너뜀", keyword)
+            logger.exception("[scheduler] '%s' Browse API 수집 중 처리되지 않은 오류, 건너뜀", keyword)
             continue
 
         if not raw_items:
