@@ -70,7 +70,7 @@ def _build_ai_analysis(vision_result: GeminiVisionResult, scam_result: ClaudeSca
 
 
 def determine_is_trigger(margin_rate_percent: float, scam_risk: ScamRiskLevel) -> bool:
-    """마진율 20% 이상 + scam_risk가 High가 아닐 때만 True.
+    """마진율 10% 이상 + scam_risk가 High가 아닐 때만 True.
 
     스캠 위험도가 High면 마진이 아무리 좋아도 시그널을 보내지 않는다
     (마진만 보고 사면 안 되는 함정 매물을 걸러내기 위함).
