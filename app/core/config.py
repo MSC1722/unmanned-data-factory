@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     # 로그만 남기고 빈 리스트를 반환한다(스케줄러 전체를 죽이지 않기 위함).
     ebay_client_id: str = ""
     ebay_client_secret: str = ""
+    # "sandbox" 또는 "production". App ID/Cert ID에 SBX- 접두사가 붙어있으면
+    # sandbox 키이므로 반드시 "sandbox"로 맞춰야 인증이 통과한다(엔드포인트가 다름).
+    # sandbox는 실제 매물이 아니라 eBay가 제공하는 가짜 테스트 데이터만 반환한다.
+    ebay_env: str = "production"
 
     # AI API 키. 비어 있으면 각 서비스는 규칙 기반 fallback으로 동작한다.
     gemini_api_key: str = ""

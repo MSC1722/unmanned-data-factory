@@ -36,9 +36,16 @@ from app.schemas.camera import CameraCurrency, CameraPlatform, RawCameraItem
 
 logger = get_logger(__name__)
 
-_OAUTH_TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token"
-_SEARCH_URL = "https://api.ebay.com/buy/browse/v1/item_summary/search"
 _OAUTH_SCOPE = "https://api.ebay.com/oauth/api_scope"
+
+
+def _api_base_url() -> str:
+    """EBAY_ENV=sandbox면 샌드박스 호스트를, 아니면 실서비스 호스트를 반환한다.
+
+    App ID/Cert ID가 SBX- 접두사(샌드박스 키)인데 실서비스 호스트로 호출하면
+    401/invalid_client로 실패한다 — 반드시 발급받은 키셋과 짝을 맞춰야 한다.
+    """
+    return "api.sandbox.ebay.com" if settings.ebay_env == "sandbox" else "api.ebay.com"
 
 # 프로세스 생애주기 동안 재사용하는 앱 토큰 캐시. (토큰, 만료 unix timestamp)
 _cached_token: Optional[tuple[str, float]] = None
@@ -64,7 +71,7 @@ async def _get_access_token(client: httpx.AsyncClient) -> Optional[str]:
 
     try:
         response = await client.post(
-            _OAUTH_TOKEN_URL,
+            f"https://{_api_base_url()}/identity/v1/oauth2/token",
             auth=(settings.ebay_client_id, settings.ebay_client_secret),
             headers={"Content-Type": "application/x-www-form-urlencoded"},
             data={"grant_type": "client_credentials", "scope": _OAUTH_SCOPE},
@@ -167,7 +174,7 @@ async def fetch_ebay_browse_items(keyword: str, limit: int = 50) -> list[RawCame
 
         try:
             response = await client.get(
-                _SEARCH_URL,
+                f"https://{_api_base_url()}/buy/browse/v1/item_summary/search",
                 headers={
                     "Authorization": f"Bearer {token}",
                     "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",

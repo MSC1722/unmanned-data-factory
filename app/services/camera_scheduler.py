@@ -32,6 +32,11 @@ KEYWORD_BASELINE_PRICE_USD = {
     "leica m6": 3200.0,
     "contax t2": 950.0,
     "nikon fm2": 320.0,
+    # eBay Sandbox(EBAY_ENV=sandbox)는 실제 매물이 아니라 정해진 소수의 데모
+    # 카탈로그만 갖고 있어 위 3개 키워드는 항상 0건이다. "camera"는 Sandbox
+    # 데모 데이터에 실제로 존재해 파이프라인 동작 확인용으로 추가했다 —
+    # Production 키로 전환하면 이 줄은 지워도 된다.
+    "camera": 500.0,
 }
 
 
