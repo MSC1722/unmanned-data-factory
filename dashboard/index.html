@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Global Arbitrage Protocol — Live Signal Dashboard</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+  rel="stylesheet"
+/>
+
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          brand: {
+            300: "#bef264",
+            400: "#a3e635",
+            500: "#84cc16",
+            600: "#65a30d",
+          },
+        },
+        fontFamily: {
+          sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+          mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
+        },
+      },
+    },
+  };
+</script>
+
+<style>
+  html {
+    scrollbar-color: #27272a #000;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: #000; }
+  ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+
+  body {
+    background-color: #000;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(163, 230, 53, 0.08), transparent),
+      linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+    background-size: auto, 44px 44px, 44px 44px;
+  }
+
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+  .animate-pulse-soft { animation: pulse-soft 1.8s ease-in-out infinite; }
+
+  @keyframes card-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .card-enter { animation: card-in 0.4s ease-out both; }
+
+  @keyframes ticker-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  .ticker-track {
+    animation: ticker-scroll 26s linear infinite;
+  }
+  .ticker-wrap:hover .ticker-track {
+    animation-play-state: paused;
+  }
+</style>
+</head>
+
+<body class="min-h-screen font-sans text-white antialiased">
+
+  <!-- ============================== HEADER ============================== -->
+  <header class="sticky top-0 z-40 border-b border-white/10 bg-black/85 backdrop-blur-xl">
+    <div class="mx-auto flex h-16 max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+
+      <!-- Logo -->
+      <div class="flex shrink-0 items-center gap-3">
+        <svg width="34" height="34" viewBox="0 0 34 34" fill="none" class="drop-shadow-[0_0_10px_rgba(163,230,53,0.55)]">
+          <rect x="1" y="1" width="32" height="32" rx="8" stroke="#a3e635" stroke-width="1.5" />
+          <path d="M10 21L17 9L24 21" stroke="#a3e635" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          <circle cx="17" cy="21" r="2.4" fill="#a3e635" />
+        </svg>
+        <div class="leading-tight">
+          <p class="text-[15px] font-extrabold tracking-tight text-white sm:text-base">
+            GLOBAL ARBITRAGE <span class="text-brand-400">PROTOCOL</span>
+          </p>
+          <p class="hidden text-[10px] font-medium uppercase tracking-[0.18em] text-zinc-500 sm:block">
+            Camera &amp; Lens Sourcing Engine
+          </p>
+        </div>
+      </div>
+
+      <!-- FX ticker -->
+      <div class="ticker-wrap relative hidden flex-1 overflow-hidden md:block">
+        <div class="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-black to-transparent"></div>
+        <div class="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-black to-transparent"></div>
+        <div class="flex whitespace-nowrap">
+          <div id="ticker-track-a" class="ticker-track flex items-center gap-6 pr-6"></div>
+          <div id="ticker-track-b" class="ticker-track flex items-center gap-6 pr-6" aria-hidden="true"></div>
+        </div>
+      </div>
+
+      <!-- Clock -->
+      <div class="hidden shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 font-mono text-xs text-zinc-400 lg:flex">
+        <span class="h-1.5 w-1.5 rounded-full bg-brand-400"></span>
+        <span id="utc-clock" class="tabular">--:--:--</span>
+        <span class="text-zinc-600">UTC</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================== CONTROL BAR ============================== -->
+  <div class="sticky top-16 z-30 border-b border-white/10 bg-black/70 backdrop-blur-xl">
+    <div class="mx-auto max-w-[1600px] px-4 py-4 sm:px-6 lg:px-8">
+
+      <!-- Stat tiles -->
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div class="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Active Signals</p>
+          <p id="stat-active" class="mt-1 font-mono text-2xl font-bold tabular text-white">—</p>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Scanned Listings</p>
+          <p id="stat-scanned" class="mt-1 font-mono text-2xl font-bold tabular text-white">—</p>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Avg. Margin</p>
+          <p id="stat-avg-margin" class="mt-1 font-mono text-2xl font-bold tabular text-brand-400">—</p>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Top Margin</p>
+          <p id="stat-top-margin" class="mt-1 font-mono text-2xl font-bold tabular text-brand-400">—</p>
+        </div>
+      </div>
+
+      <!-- Sort tabs + status -->
+      <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span class="mr-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Sort</span>
+          <div class="flex rounded-full border border-white/10 bg-white/[0.02] p-1">
+            <button data-sort="margin" class="sort-btn rounded-full px-3.5 py-1.5 text-xs font-semibold transition">
+              Margin ↓
+            </button>
+            <button data-sort="newest" class="sort-btn rounded-full px-3.5 py-1.5 text-xs font-semibold transition">
+              Newest
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button id="refresh-btn" title="Refresh now" class="group flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.02] px-3 py-1.5 text-xs font-medium text-zinc-400 transition hover:border-brand-400/40 hover:text-brand-300">
+            <svg id="refresh-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" class="transition-transform duration-500">
+              <path d="M4 4v5h5M20 20v-5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M4.6 15a8 8 0 1 0 1-9.5L4 9M20 15l-.6 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span id="last-updated">Updated just now</span>
+          </button>
+
+          <div id="status-pill" class="flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-300">
+            <span id="status-dot" class="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse-soft"></span>
+            <span id="status-label">MOCK DATA</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== MAIN GRID ============================== -->
+  <main class="mx-auto max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8">
+    <div id="card-grid" class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3"></div>
+
+    <div id="empty-state" class="hidden flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 py-20 text-center">
+      <p class="text-sm font-medium text-zinc-500">No signals match the current view.</p>
+    </div>
+  </main>
+
+  <footer class="border-t border-white/10 px-4 py-6 text-center sm:px-6 lg:px-8">
+    <p class="text-[11px] text-zinc-600">
+      Global Arbitrage Protocol · AI analysis by Gemini Vision + Claude · Margins are estimates, not financial advice.
+    </p>
+  </footer>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------------------------------------------------------------------
+  // CONFIG
+  // ---------------------------------------------------------------------
+  const CONFIG = {
+    API_BASE: "",                    // same-origin by default; point at the FastAPI host if served separately
+    SIGNALS_ENDPOINT: "/api/v1/signals",
+    POLL_INTERVAL_MS: 20000,
+    FETCH_TIMEOUT_MS: 5000,
+  };
+
+  // ---------------------------------------------------------------------
+  // MOCK DATA — shaped exactly like the real GET /api/v1/signals payload
+  // (ProcessedCameraItem[]) so swapping to the live API needs zero markup
+  // changes. Renders both a triggered ("good deal") and a suppressed
+  // ("scam filtered") card so the AI filter is visible before the backend
+  // is wired up.
+  // ---------------------------------------------------------------------
+  const now = Date.now();
+  const MOCK_DATA = [
+    {
+      raw: {
+        item_id: "ebay-000111222",
+        name: "Leica M6 Classic 0.72 Chrome Body",
+        source_url: "https://www.ebay.com/itm/000111222",
+        currency: "USD",
+        platform: "eBay",
+        price: 1300.0,
+        seller_rating: 99.8,
+        seller_transaction_count: 1523,
+        description: "Leica M6 Classic 0.72 viewfinder, chrome body. Clean glass, accurate shutter speeds, meter works perfectly.",
+        image_urls: ["https://example.com/images/leica_m6_1.jpg"],
+        scraped_at: new Date(now - 3 * 60 * 1000).toISOString(),
+      },
+      ai_analysis: {
+        condition_grade: "Excellent",
+        condition_score: 92,
+        detected_defects: [],
+        scam_risk: "Low",
+      },
+      pricing: {
+        original_price: 1300.0,
+        original_currency: "USD",
+        exchange_rate_to_usd: 1.0,
+        foreign_buy_price_usd: 1300.0,
+        global_shipping_fee_usd: 40.0,
+        final_import_cost_usd: 1340.0,
+        global_baseline_price_usd: 1786.67,
+        net_profit_usd: 446.67,
+        margin_rate_percent: 25.0,
+      },
+      purchase_links: [
+        { country_code: "GLOBAL", label: "eBay 직접구매/직배송", url: "https://www.ebay.com/itm/000111222" },
+      ],
+      is_trigger: true,
+      processed_at: new Date(now - 3 * 60 * 1000 + 4000).toISOString(),
+    },
+    {
+      raw: {
+        item_id: "yja-99887766",
+        name: "Fujifilm X100V Black",
+        source_url: "https://page.auctions.yahoo.co.jp/jp/auction/99887766",
+        currency: "JPY",
+        platform: "Yahoo_Auction",
+        price: 45000.0,
+        seller_rating: 97.5,
+        seller_transaction_count: 412,
+        description: "Fujifilm X100V - Junk (부품용), for parts only. Shutter not working, LCD cracked. As-is, no returns accepted.",
+        image_urls: ["https://example.com/images/x100v_junk_1.jpg"],
+        scraped_at: new Date(now - 11 * 60 * 1000).toISOString(),
+      },
+      ai_analysis: {
+        condition_grade: "Fair",
+        condition_score: 18,
+        detected_defects: ["LCD/뷰파인더 손상", "부품용/미작동 추정"],
+        scam_risk: "High",
+      },
+      pricing: {
+        original_price: 45000.0,
+        original_currency: "JPY",
+        exchange_rate_to_usd: 1 / 150,
+        foreign_buy_price_usd: 300.0,
+        global_shipping_fee_usd: 40.0,
+        final_import_cost_usd: 340.0,
+        global_baseline_price_usd: 1000.0,
+        net_profit_usd: 660.0,
+        margin_rate_percent: 66.0,
+      },
+      purchase_links: [
+        { country_code: "GLOBAL", label: "Buyee (일본 대리구매)", url: "https://buyee.jp/item/yahoo/auction/yja-99887766" },
+        { country_code: "GLOBAL", label: "ZenMarket (일본 대리구매)", url: "https://zenmarket.jp/en/auction.aspx?itemCode=yja-99887766" },
+        { country_code: "JP", label: "Yahoo Auction 원본 (일본 거주자 전용)", url: "https://page.auctions.yahoo.co.jp/jp/auction/99887766" },
+      ],
+      is_trigger: false,
+      processed_at: new Date(now - 11 * 60 * 1000 + 4000).toISOString(),
+    },
+  ];
+
+  // Reference-only FX strip (not wired to a live forex feed in this MVP).
+  const FX_REFERENCE = [
+    { pair: "USD/JPY", value: "¥150.00", dir: "down" },
+    { pair: "USD/EUR", value: "€0.92", dir: "up" },
+    { pair: "USD/GBP", value: "£0.79", dir: "down" },
+    { pair: "USD/KRW", value: "₩1,470", dir: "up" },
+  ];
+
+  // ---------------------------------------------------------------------
+  // STATE
+  // ---------------------------------------------------------------------
+  let currentData = MOCK_DATA;
+  let currentSort = "margin"; // 'margin' | 'newest'
+  let isLive = false;
+  let lastUpdated = new Date();
+
+  // ---------------------------------------------------------------------
+  // FORMATTERS
+  // ---------------------------------------------------------------------
+  const usd = (n) => "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const originalPriceLabel = (pricing) => {
+    if (pricing.original_currency === "USD") return usd(pricing.original_price);
+    const symbol = pricing.original_currency === "JPY" ? "¥" : pricing.original_currency + " ";
+    return symbol + Number(pricing.original_price).toLocaleString("en-US") + " → " + usd(pricing.foreign_buy_price_usd);
+  };
+
+  const timeAgo = (iso) => {
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const mins = Math.max(0, Math.floor(diffMs / 60000));
+    if (mins < 1) return "just now";
+    if (mins < 60) return mins + "m ago";
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + "h ago";
+    return Math.floor(hrs / 24) + "d ago";
+  };
+
+  const PLATFORM_META = {
+    eBay: { label: "eBay", flag: "🌐" },
+    Yahoo_Auction: { label: "Yahoo Auction JP", flag: "🇯🇵" },
+    Mercari: { label: "Mercari JP", flag: "🇯🇵" },
+  };
+  const platformMeta = (p) => PLATFORM_META[p] || { label: p, flag: "🌐" };
+
+  const RISK_META = {
+    Low: {
+      label: "LOW RISK",
+      badge: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
+      dot: "bg-emerald-400",
+      icon: '<path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+    },
+    Medium: {
+      label: "MEDIUM RISK",
+      badge: "border-amber-400/30 bg-amber-400/10 text-amber-300",
+      dot: "bg-amber-400",
+      icon: '<path d="M12 9v4m0 4h.01M10.3 3.9L2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+    },
+    High: {
+      label: "HIGH RISK",
+      badge: "border-red-500/40 bg-red-500/10 text-red-400",
+      dot: "bg-red-500 animate-pulse-soft",
+      icon: '<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M9.5 9.5l5 5m0-5l-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+    },
+  };
+
+  // ---------------------------------------------------------------------
+  // CARD TEMPLATE
+  // ---------------------------------------------------------------------
+  function conditionRing(score) {
+    const r = 17, c = 2 * Math.PI * r;
+    const offset = c * (1 - Math.max(0, Math.min(100, score)) / 100);
+    return `
+      <svg width="44" height="44" viewBox="0 0 40 40" class="-rotate-90">
+        <circle cx="20" cy="20" r="${r}" fill="none" stroke="rgba(163,230,53,0.15)" stroke-width="4" />
+        <circle cx="20" cy="20" r="${r}" fill="none" stroke="#a3e635" stroke-width="4"
+          stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${offset}" />
+      </svg>`;
+  }
+
+  function defectChips(defects) {
+    if (!defects || defects.length === 0) return "";
+    return `
+      <div class="mt-3 flex flex-wrap gap-1.5">
+        ${defects.map(d => `
+          <span class="rounded-md border border-red-500/30 bg-red-500/5 px-2 py-0.5 text-[10px] font-medium text-red-300">${d}</span>
+        `).join("")}
+      </div>`;
+  }
+
+  function purchaseLinksBlock(item) {
+    const links = item.purchase_links || [];
+    const primary = links[0];
+    const rest = links.slice(1);
+
+    if (!primary) return "";
+
+    const ctaClasses = item.is_trigger
+      ? "bg-brand-400 text-black hover:bg-brand-300 hover:shadow-[0_0_20px_rgba(163,230,53,0.45)]"
+      : "border border-white/15 bg-white/[0.03] text-zinc-300 hover:border-white/30";
+
+    const ctaLabel = item.is_trigger ? `Buy Now on ${platformMeta(item.raw.platform).label} ↗` : "View Listing (Not Recommended) ↗";
+
+    return `
+      <a href="${primary.url}" target="_blank" rel="noopener noreferrer"
+         class="mt-4 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition ${ctaClasses}">
+        ${ctaLabel}
+      </a>
+      ${rest.length ? `
+        <p class="mt-2 text-center text-[11px] text-zinc-500">
+          +${rest.length} more option${rest.length > 1 ? "s" : ""}:
+          ${rest.map(l => `<a href="${l.url}" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted underline-offset-2 hover:text-zinc-300">${l.label}</a>`).join(" · ")}
+        </p>` : ""}`;
+  }
+
+  function renderCard(item, index) {
+    const p = item.pricing;
+    const ai = item.ai_analysis;
+    const risk = RISK_META[ai.scam_risk] || RISK_META.Medium;
+    const platform = platformMeta(item.raw.platform);
+
+    const ribbon = item.is_trigger
+      ? `<div class="absolute -top-2.5 left-5 flex items-center gap-1 rounded-full bg-brand-400 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-black shadow-[0_0_14px_rgba(163,230,53,0.55)]">
+           <span class="h-1.5 w-1.5 rounded-full bg-black/70"></span> Signal Active
+         </div>`
+      : `<div class="absolute -top-2.5 left-5 rounded-full bg-red-500/90 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+           Signal Suppressed
+         </div>`;
+
+    const cardBorder = item.is_trigger
+      ? "border-brand-400/25 hover:border-brand-400/60 hover:shadow-[0_0_28px_rgba(163,230,53,0.12)]"
+      : "border-red-500/15 hover:border-red-500/35";
+
+    return `
+      <article class="card-enter group relative rounded-2xl border ${cardBorder} bg-zinc-950/70 p-5 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1"
+                style="animation-delay:${index * 60}ms">
+        ${ribbon}
+
+        <!-- image placeholder -->
+        <div class="relative mb-4 mt-1 flex h-32 items-center justify-center overflow-hidden rounded-xl border border-white/5 bg-gradient-to-br from-zinc-900 via-zinc-950 to-black">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" class="text-zinc-700">
+            <path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.5"/>
+            <circle cx="12" cy="13.5" r="3.5" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          <span class="absolute left-2 top-2 rounded-md bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
+            ${platform.flag} ${platform.label}
+          </span>
+          <div class="absolute right-2 top-2 flex h-11 w-11 items-center justify-center">
+            ${conditionRing(ai.condition_score)}
+            <span class="absolute font-mono text-[11px] font-bold text-brand-300 tabular">${ai.condition_score}</span>
+          </div>
+        </div>
+
+        <!-- title -->
+        <h3 class="truncate text-[15px] font-semibold text-white" title="${item.raw.name}">${item.raw.name}</h3>
+        <p class="mt-0.5 text-xs text-zinc-500">${ai.condition_grade} condition · ${timeAgo(item.raw.scraped_at)}</p>
+
+        <!-- price row -->
+        <div class="mt-4 flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 font-mono text-xs">
+          <span class="text-zinc-500">Buy Price</span>
+          <span class="tabular text-zinc-200">${originalPriceLabel(p)}</span>
+        </div>
+
+        <!-- margin block -->
+        <div class="mt-3 grid grid-cols-2 gap-3">
+          <div>
+            <p class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Net Profit</p>
+            <p class="font-mono text-lg font-bold tabular text-white">${usd(p.net_profit_usd)}</p>
+          </div>
+          <div class="text-right">
+            <p class="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Margin / ROI</p>
+            <p class="font-mono text-2xl font-extrabold tabular text-brand-400 [text-shadow:0_0_16px_rgba(163,230,53,0.45)]">
+              ${p.margin_rate_percent.toFixed(1)}%
+            </p>
+          </div>
+        </div>
+
+        <!-- risk badge -->
+        <div class="mt-4 flex items-center justify-between gap-2">
+          <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold ${risk.badge}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">${risk.icon}</svg>
+            ${risk.label}
+          </span>
+          <span class="text-[11px] text-zinc-500">★ ${item.raw.seller_rating}% · ${item.raw.seller_transaction_count.toLocaleString()} sales</span>
+        </div>
+
+        ${defectChips(ai.detected_defects)}
+        ${purchaseLinksBlock(item)}
+      </article>`;
+  }
+
+  // ---------------------------------------------------------------------
+  // RENDER
+  // ---------------------------------------------------------------------
+  function sortedData() {
+    const copy = [...currentData];
+    if (currentSort === "margin") {
+      copy.sort((a, b) => b.pricing.margin_rate_percent - a.pricing.margin_rate_percent);
+    } else {
+      copy.sort((a, b) => new Date(b.raw.scraped_at) - new Date(a.raw.scraped_at));
+    }
+    return copy;
+  }
+
+  function renderGrid() {
+    const data = sortedData();
+    const grid = document.getElementById("card-grid");
+    const empty = document.getElementById("empty-state");
+
+    if (data.length === 0) {
+      grid.innerHTML = "";
+      empty.classList.remove("hidden");
+      empty.classList.add("flex");
+    } else {
+      empty.classList.add("hidden");
+      empty.classList.remove("flex");
+      grid.innerHTML = data.map((item, i) => renderCard(item, i)).join("");
+    }
+
+    renderStats(data);
+  }
+
+  function renderStats(data) {
+    const triggered = data.filter((i) => i.is_trigger);
+    const margins = data.map((i) => i.pricing.margin_rate_percent);
+    const avg = margins.length ? margins.reduce((a, b) => a + b, 0) / margins.length : 0;
+    const top = margins.length ? Math.max(...margins) : 0;
+
+    document.getElementById("stat-active").textContent = triggered.length;
+    document.getElementById("stat-scanned").textContent = data.length;
+    document.getElementById("stat-avg-margin").textContent = data.length ? avg.toFixed(1) + "%" : "—";
+    document.getElementById("stat-top-margin").textContent = data.length ? top.toFixed(1) + "%" : "—";
+  }
+
+  function renderTicker() {
+    const chip = (f) => `
+      <span class="inline-flex items-center gap-1.5 font-mono text-xs text-zinc-400">
+        <span class="font-semibold text-zinc-300">${f.pair}</span>
+        <span class="tabular">${f.value}</span>
+        <span class="${f.dir === "up" ? "text-emerald-400" : "text-red-400"}">${f.dir === "up" ? "▲" : "▼"}</span>
+      </span>
+      <span class="text-zinc-700">│</span>`;
+    const html = FX_REFERENCE.map(chip).join("");
+    document.getElementById("ticker-track-a").innerHTML = html;
+    document.getElementById("ticker-track-b").innerHTML = html;
+  }
+
+  // ---------------------------------------------------------------------
+  // STATUS / CLOCK
+  // ---------------------------------------------------------------------
+  function setStatus(state) {
+    const pill = document.getElementById("status-pill");
+    const dot = document.getElementById("status-dot");
+    const label = document.getElementById("status-label");
+
+    const STATES = {
+      live: { pill: "border-brand-400/30 bg-brand-400/10 text-brand-300", dot: "bg-brand-400 animate-pulse-soft", text: "LIVE" },
+      mock: { pill: "border-amber-400/30 bg-amber-400/10 text-amber-300", dot: "bg-amber-400", text: "MOCK DATA" },
+      connecting: { pill: "border-zinc-500/30 bg-zinc-500/10 text-zinc-300", dot: "bg-zinc-400 animate-pulse-soft", text: "CONNECTING…" },
+    };
+    const s = STATES[state] || STATES.mock;
+    pill.className = "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold " + s.pill;
+    dot.className = "h-1.5 w-1.5 rounded-full " + s.dot;
+    label.textContent = s.text;
+  }
+
+  function tickClock() {
+    document.getElementById("utc-clock").textContent = new Date().toISOString().slice(11, 19);
+    const secs = Math.round((Date.now() - lastUpdated.getTime()) / 1000);
+    document.getElementById("last-updated").textContent = secs < 5 ? "Updated just now" : `Updated ${secs}s ago`;
+  }
+
+  // ---------------------------------------------------------------------
+  // LIVE FETCH — GET /api/v1/signals (falls back to mock on any failure)
+  // ---------------------------------------------------------------------
+  async function fetchSignals() {
+    setStatus("connecting");
+    const icon = document.getElementById("refresh-icon");
+    icon.style.transform = "rotate(360deg)";
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT_MS);
+      const res = await fetch(CONFIG.API_BASE + CONFIG.SIGNALS_ENDPOINT, { signal: controller.signal });
+      clearTimeout(timeout);
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+
+      currentData = Array.isArray(json.signals) ? json.signals : [];
+      isLive = true;
+      setStatus("live");
+    } catch (err) {
+      console.warn("[dashboard] Live API unreachable, staying on mock data:", err.message);
+      if (!isLive) currentData = MOCK_DATA;
+      setStatus("mock");
+    }
+
+    lastUpdated = new Date();
+    renderGrid();
+    setTimeout(() => { icon.style.transform = "rotate(0deg)"; }, 500);
+  }
+
+  // ---------------------------------------------------------------------
+  // EVENTS
+  // ---------------------------------------------------------------------
+  function setActiveSortButton() {
+    document.querySelectorAll(".sort-btn").forEach((btn) => {
+      const active = btn.dataset.sort === currentSort;
+      btn.className = "sort-btn rounded-full px-3.5 py-1.5 text-xs font-semibold transition " +
+        (active ? "bg-brand-400 text-black" : "text-zinc-400 hover:text-white");
+    });
+  }
+
+  document.querySelectorAll(".sort-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      currentSort = btn.dataset.sort;
+      setActiveSortButton();
+      renderGrid();
+    });
+  });
+
+  document.getElementById("refresh-btn").addEventListener("click", fetchSignals);
+
+  // ---------------------------------------------------------------------
+  // INIT
+  // ---------------------------------------------------------------------
+  setActiveSortButton();
+  renderTicker();
+  renderGrid();
+  setStatus("mock");
+  tickClock();
+
+  setInterval(tickClock, 1000);
+  setInterval(fetchSignals, CONFIG.POLL_INTERVAL_MS);
+  fetchSignals(); // attempt a live connection immediately; silently falls back to mock
+})();
+</script>
+</body>
+</html>

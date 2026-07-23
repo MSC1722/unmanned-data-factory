@@ -1,0 +1,27 @@
+# 절대 이미지에 포함되면 안 되는 것 — 실제 API 키가 들어있다.
+.env
+.env.*
+!.env.example
+
+# 로컬 개발 전용
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# 런타임 데이터 (컨테이너 안에서 새로 생성됨 — 이미지에 구워 넣지 않는다)
+cache.db
+cache.db-wal
+cache.db-shm
+logs/*.log
+outbox/*.jsonl
+
+# 버전 관리/에디터 메타데이터
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# 문서 (이미지 실행에 불필요)
+README.md

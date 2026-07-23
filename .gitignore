@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+logs/*.log
+outbox/*.jsonl
+.pytest_cache/
+cache.db
+cache.db-wal
+cache.db-shm
