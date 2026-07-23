@@ -9,3 +9,4 @@ outbox/*.jsonl
 cache.db
 cache.db-wal
 cache.db-shm
+.claude/settings.local.json

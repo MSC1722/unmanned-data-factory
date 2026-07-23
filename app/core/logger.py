@@ -17,6 +17,15 @@ LOG_DIR.mkdir(exist_ok=True)
 
 _LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
 
+# Windows 콘솔의 기본 코드페이지(cp949 등)는 en-dash(–)나 이모지처럼 흔한
+# 유니코드 문자를 인코딩하지 못해 로깅 자체가 "Logging error"로 깨진다.
+# 해외 매물 제목(이베이 등)에는 이런 문자가 흔히 섞여 있으므로, 콘솔 출력을
+# UTF-8로 강제하고 그래도 안 되는 문자는 예외를 던지는 대신 이스케이프한다.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
+except (AttributeError, ValueError):
+    pass
+
 
 def get_logger(name: str) -> logging.Logger:
     """모듈별로 이름이 다른 로거를 반환한다 (예: get_logger(__name__))."""
